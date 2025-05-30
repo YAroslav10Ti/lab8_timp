@@ -1,0 +1,29 @@
+name: Docker Build and Artifact Upload
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build Docker image
+      run: docker build -t lab8_timp-builder .
+    - name: Run build in container
+      run: |
+        docker run \
+          --name lab8_timp-build \
+          -v $(pwd):/app/src \
+          lab8_timp-builder \
+          /app/build.sh
+    - name: Extract build log
+      run: |
+        docker cp lab8_timp-build:/app/build_log.txt .
+        cat build_log.txt
+    - name: Upload build log
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-log
+        path: build_log.txt
+    - name: Cleanup
+      run: docker rm lab8_timp-build
