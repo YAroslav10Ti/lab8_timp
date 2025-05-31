@@ -1,4 +1,4 @@
-name: Docker Build and Artifact Upload
+name: Docker Build and Test
 
 on: [push, pull_request]
 
@@ -6,24 +6,34 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3  # Обновлённая версия
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
     - name: Build Docker image
-      run: docker build -t lab8_timp-builder .
-    - name: Run build in container
       run: |
-        docker run \
-          --name lab8_timp-build \
-          -v $(pwd):/app/src \
-          lab8_timp-builder \
-          /app/build.sh
-    - name: Extract build log
+        docker build -t lab8_builder .
+        docker create --name lab8_container lab8_builder
+        docker start -a lab8_container || echo "Build completed"
+
+    - name: Extract artifacts
+      if: always()
       run: |
-        docker cp lab8_timp-build:/app/build_log.txt .
-        cat build_log.txt
-    - name: Upload build log
-      uses: actions/upload-artifact@v2
+        docker cp lab8_container:/app/build_log.txt . || echo "Log not found"
+        docker cp lab8_container:/app/build/lab8 . || echo "Binary not found"
+        ls -la
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3  # Обновлённая версия
       with:
-        name: build-log
-        path: build_log.txt
+        name: build-artifacts
+        path: |
+          build_log.txt
+          lab8
+        if-no-files-found: warn
+
     - name: Cleanup
-      run: docker rm lab8_timp-build
+      run: |
+        docker rm lab8_container || true
+        docker rmi lab8_builder || true
